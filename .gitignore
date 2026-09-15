@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Data dir (contains the news)
+data
+
+# ТАСС-headers
+config/tass_headers.py
+
+# notebooks (.ipynb) directory
+notebooks
