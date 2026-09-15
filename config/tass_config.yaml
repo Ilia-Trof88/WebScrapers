@@ -1,0 +1,3 @@
+tass_endpoints:
+  search_url: "https://tass.ru/tbp/api/v1/search"
+  content_url: "https://tass.ru/tbp/api/v1/content/"
