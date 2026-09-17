@@ -8,13 +8,12 @@ from scrapers.BaseScraper import BaseScraper
 
 class VtomskeScraper(BaseScraper):
 
+    BASE_URL = 'https://vtomske.ru'
+
     def __init__(self,
-                 scraper_name: str,
-                 base_url: str):
+                 scraper_name: str):
 
         super().__init__(scraper_name)
-
-        self.base_url = base_url
 
     def _get_bs_object(self,
                        url: str) -> BeautifulSoup:
@@ -81,12 +80,12 @@ class VtomskeScraper(BaseScraper):
 
         page_content = bs_object.find('div', class_='material-content')
 
-        news_paragraphs = page_content.find_all('p')
-
-        if (not page_content) or (not news_paragraphs):
+        if not page_content:
             return None
 
-        news_body = ''.join([x.text.strip() for x in news_paragraphs])
+        all_text_material = page_content.find_all(re.compile(r'^(h[1-6]|p|ul)$')) # Получаем все возможные теги
+
+        news_body = '\n'.join([x.text for x in all_text_material])
 
         return news_body
 
@@ -119,14 +118,14 @@ class VtomskeScraper(BaseScraper):
         return dt_str
 
     def _parse_author(self,
-                      news_url) -> str | None:
+                      news_url: str) -> str | None:
         '''
         Метод для получения автора новостной статьи
         '''
 
         bs_object = self._get_bs_object(url = news_url)
 
-        material_tag = bs_object.find('div', class_='material_info')
+        material_tag = bs_object.find('div', class_='material-info')
 
         if not material_tag:
             return None
@@ -134,6 +133,76 @@ class VtomskeScraper(BaseScraper):
         author = material_tag.find('a', class_='material-author').text
 
         return author
+
+    def _get_page_news(self,
+                       page_url: str) -> list[str] | None:
+        """
+        Метод для получения всех ссылок на новости со страницы.
+
+        Args:
+            page_url (str): URL-страницы, с которой требуется собрать все ссылки.
+
+        Returns:
+            list[str] | None: Список со всеми ссылками со страницы либо None
+
+        """
+
+        bs_object = self._get_bs_object(url = page_url)
+
+        links_element = bs_object.find_all("a", class_="lenta_material")
+
+        if not links_element:
+
+            return None
+
+        links = [self.BASE_URL + str(x.get('href')) for x in links_element]
+
+        return links
+
+    def _parse_single_article(self,
+                              news_url: str) -> dict[str, str | None]:
+        """
+        Метод выполняющий парсинг одной новостной статьи.
+
+        Args:
+            news_url (str): URL конкретной новостной статьи
+        
+        Returns:
+            dict: Словарь со следующими ключами:
+            - headline. Заголовок новостной статьи.
+            - news_body. Тело (основной текст) новостной статьи.
+            - publishing_date. Дата публикации datetime в формате строки.
+            - author. Автор новости.
+        """
+
+        base_dict = {
+            "headline": None,
+            "news_body": None,
+            "publishing_date": None,
+            "author": None
+        }
+
+
+        try:
+
+            parsed_headline = self._parse_headline(news_url = news_url)
+            parsed_body = self._parse_news_body(news_url = news_url)
+            parsed_publishing_date = self._parse_publishing_date(news_url = news_url)
+            parsed_author = self._parse_author(news_url = news_url)
+
+            base_dict['headline'] = parsed_headline
+            base_dict['news_body'] = parsed_body
+            base_dict['publishing_date'] = parsed_publishing_date
+            base_dict['author'] = parsed_author
+
+            return base_dict
+
+        except Exception as e:
+
+            print(f'An unexpected Error occured during article parsing!')
+            print(f'Exception text: {e}')
+
+            return base_dict
 
 class NewsParser:
     """
