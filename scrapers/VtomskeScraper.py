@@ -179,7 +179,8 @@ class VtomskeScraper(BaseScraper):
             "headline": None,
             "news_body": None,
             "publishing_date": None,
-            "author": None
+            "author": None,
+            "url": news_url
         }
 
 
@@ -233,15 +234,60 @@ class VtomskeScraper(BaseScraper):
         else:
             return next_page_link.get('href')
 
-    def parse_rubric(self):
+    def parse_rubric(self,
+                     start_url: str,
+                     num_news: int) -> list[dict]:
         '''
-        '''
-        pass
+        Метод для сбора желаемого количества новостей по конкретной тематике.
 
+        Args:
+            start_url (str): Начальный (стартовый) URL, с которого требуется начать поиск.
+            num_news (int): Количество новостей, которое необходимо собрать.
+        
+        Returns:
+            list[dict]: Список словарей. Словари следует формату, описанному в методе _parse_single_article
+        
+        *Примечание* Желательно в качестве start_url передавать начальную страницу рубрики, вроде: https://vtomske.ru/tag/russia
+        Для более удобного перехода по страницам.
+        '''
+
+        num_collected_news = 0
+
+        collected_news = []
+
+        next_page_url = start_url
+
+        while num_collected_news < num_news:
+
+            print(f'Идет сбор с страницы: {next_page_url}')
+
+            current_news_links = self._get_page_news(page_url = next_page_url)
+
+            for news_link in current_news_links:
+
+                news_dict = self._parse_single_article(news_url = news_link)
+
+                collected_news.append(news_dict)
+
+            num_collected_news = len(collected_news)
+
+            print(f'Количество собранных новостей: {len(collected_news)}')
+
+            next_page_url = start_url + self._get_next_page_link(page_url = next_page_url)
+
+            if not next_page_url:
+
+                print('На текущей странице не найдено URL следующей страницы (кнопки Раньше), завершаю цикл...')
+                break
+
+        print('Цикл сбора новостей успешно завершен!')
+        print(f'Количество собранных новостей: {len(collected_news)}')
+        return collected_news
 
 class NewsParser:
     """
-    Класс позволяет совершить автоматический сбор n-новостей по одной из поддерживаемых тематик
+    Класс позволяет совершить автоматический сбор n-новостей по одной из поддерживаемых тематик.
+    *ВАЖНО* Устаревший класс! Для сбора новостей используйте VtomskeScraper
     """
 
     def __init__(self, thematic: str):
@@ -258,6 +304,9 @@ class NewsParser:
                 7. Авто.
                 8. Спорт.
         """
+
+        print('Устаревший класс!')
+        print('Для сбора новостей используй VtomskeScraper!')
 
         self.thematics_url = {
             "томск": "https://vtomske.ru/tag/tomsk",
