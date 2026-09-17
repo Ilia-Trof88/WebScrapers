@@ -204,6 +204,41 @@ class VtomskeScraper(BaseScraper):
 
             return base_dict
 
+    def _get_next_page_link(self,
+                            page_url: str) -> str | None:
+        '''
+        Метод для получения следующего URL в конкретной тематики,
+        т.е. кнопка 'Раньше'.
+
+        Args:
+            page_url (str): URL страницы, на которой необходимо найти кнопку 'Раньше'.
+
+        Returns:
+            # str | None: str, если кнопка присутсвует или None, если это последняя страница рубрики.
+            *Примечание* Ссылка возвращается в следующем формате: '?down=1784357100',
+            То есть данный элемент элемент необходимо конкатенировать с url целевой тематики.
+        '''
+
+        bs_object = self._get_bs_object(page_url)
+
+        if bs_object is None:
+            return None
+
+        next_page_link = bs_object.find('a', class_='btn lenta_pager_next')
+
+        if not next_page_link:
+            print('URL следующей страницы не найден!')
+            return None
+
+        else:
+            return next_page_link.get('href')
+
+    def parse_rubric(self):
+        '''
+        '''
+        pass
+
+
 class NewsParser:
     """
     Класс позволяет совершить автоматический сбор n-новостей по одной из поддерживаемых тематик
