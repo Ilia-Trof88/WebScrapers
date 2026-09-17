@@ -1,10 +1,139 @@
-# Дата создания парсера: 24.06.2026
 import re
 import requests
 
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 
+from scrapers.BaseScraper import BaseScraper
+
+class VtomskeScraper(BaseScraper):
+
+    def __init__(self,
+                 scraper_name: str,
+                 base_url: str):
+
+        super().__init__(scraper_name)
+
+        self.base_url = base_url
+
+    def _get_bs_object(self,
+                       url: str) -> BeautifulSoup:
+        """
+        Метод для получения объекта BeautifulSoup
+
+        Args:
+            url: str
+        
+        Returns:
+            BeautifulSoup | None: Объект BeautifulSoup или None при status_code != 200
+        """
+
+        response = requests.get(url = url)
+
+        if response.status_code != 200:
+
+            print(f'The request was unsuccessfull')
+            print(f'Status code: {response.status_code}')
+            print(f'Response: text: {response.text}')
+
+            return None
+
+        bs_object = BeautifulSoup(response.text, 'html.parser')
+
+        return bs_object
+
+    def _parse_headline(self,
+                        news_url: str) -> str | None:
+        '''
+        Метод для сбора заголовка с конкретной новостной статьи
+        '''
+
+        bs_object = self._get_bs_object(url = news_url)
+
+        if bs_object is None:
+            return None
+
+        news_headline = bs_object.find('h1').text
+
+        if not news_headline:
+            return None
+
+        else:
+            return news_headline
+
+    def _parse_news_body(self,
+                         news_url: str) -> str | None:
+        """
+        Метод для получения тела новости
+
+        Args:
+            news_url (str): URL-новости
+        
+        Returns:
+            str | None: Текст новости либо None. 
+        """
+
+        bs_object = self._get_bs_object(url = news_url)
+
+        if bs_object is None:
+
+            return None
+
+        page_content = bs_object.find('div', class_='material-content')
+
+        news_paragraphs = page_content.find_all('p')
+
+        if (not page_content) or (not news_paragraphs):
+            return None
+
+        news_body = ''.join([x.text.strip() for x in news_paragraphs])
+
+        return news_body
+
+    def _parse_publishing_date(self,
+                               news_url: str) -> str | None:
+        '''
+        Метод для получения даты (datetime) публикации новости в формате строки
+
+        Args:
+            news_url (str): Ссылка на страницу новости.
+        
+        Returns:
+            str | None: datetime новости в формате str или None
+        '''
+
+        bs_object = self._get_bs_object(url = news_url)
+
+        if bs_object is None:
+            return bs_object
+
+        material_information = bs_object.find('div', class_='material-info')
+
+        if not material_information:
+            return None
+
+        time_tag = material_information.find('time', class_='material-date')
+
+        dt_str = time_tag.get('datetime')
+
+        return dt_str
+
+    def _parse_author(self,
+                      news_url) -> str | None:
+        '''
+        Метод для получения автора новостной статьи
+        '''
+
+        bs_object = self._get_bs_object(url = news_url)
+
+        material_tag = bs_object.find('div', class_='material_info')
+
+        if not material_tag:
+            return None
+
+        author = material_tag.find('a', class_='material-author').text
+
+        return author
 
 class NewsParser:
     """
