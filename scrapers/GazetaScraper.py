@@ -100,7 +100,6 @@ class GazetaScraper(BaseScraper):
         
         Returns:
             str | None: Тело новостной статьи в формате str | None, если произошла ошибка при выполнении запроса
-
         '''
 
         bs_object = self._get_bs_object(target_url = news_url)
@@ -201,6 +200,7 @@ class GazetaScraper(BaseScraper):
             "body": self._parse_news_body(news_url = news_url),
             "tags": self._parse_tags(news_url = news_url),
             "publishing_date": self._parse_date(news_url = news_url),
+            "author": self._parse_author(news_url = news_url),
             "url": news_url,
             "rubric_name": self.rubric_name
         }
@@ -213,9 +213,10 @@ class GazetaScraper(BaseScraper):
         Метод получения всех URL-новостей на заданной странице.
 
         Args:
+            target_url (str): URL, с которого необходимо собрать все ссылки (URL) на новости
 
         Returns:
-
+            list[str] | None: Список ссылок, при успешном запросе или None.
         '''
 
         bs_object = self._get_bs_object(target_url = target_url)
@@ -237,15 +238,58 @@ class GazetaScraper(BaseScraper):
 
         return hrefs
 
-    def _get_next_page_link(self,
-                            target_url: str) -> str:
+    def parse_rubric(self,
+                     target_news_num: int) -> list[dict]:
         '''
+        Метод для сбора новостей по конкретной тематике.
+        
+        Сбор организован итеративным продвижение вперед по страницам выбранной тематике.
+        По сбору желаемого кол-ва новостей цикл прекращается.
+
+        Args:
+            num_news (int): Количество новостей, которое необходимо собрать
+        
+        Returns:
+            list[dict]: Список словарей. Словари следует структуре, которая указана в методе _parse_single_article.
         '''
-        pass
 
-    def parse_rubric(self):
-        pass
+        collected_news = []
 
+        num_collected_news = 0
+
+        page_counter = 1
+
+        appendix = 'page/{page_counter}/' # Строка, которую постоянно обновляем в процессе продвижения по страницам
+
+        while num_collected_news < target_news_num:
+
+            current_page_url = self.initial_url + appendix.format(page_counter = page_counter)
+
+            print(f'Сбор новостей со следующего URL: {current_page_url}')
+
+            page_news = self._get_page_news(target_url = current_page_url)
+
+            if not page_news:
+                print('На странице не обнаружено новостей! Завершаю цикл...')
+                break
+
+            for article in page_news:
+
+                news_dictionary = self._parse_single_article(news_url = article)
+
+                collected_news.append(news_dictionary)
+
+            num_collected_news = len(collected_news) # Обновляем количество собранных новостей
+
+            page_counter+=1 # Обновляем счетчик страницы (необходимо для перехода на следующую страницу)
+
+            print(f'Был успешно произведен сбор со страницы: {current_page_url}')
+            print(f'Количество собранных новостей: {num_collected_news}')
+
+        print('Цикл сбора новостей успешно завершен')
+        print(f'Количество собранных новостей: {num_collected_news}')
+
+        return collected_news
 
 
 class Scrapper:
