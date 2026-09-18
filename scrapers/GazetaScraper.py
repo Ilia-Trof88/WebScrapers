@@ -8,6 +8,9 @@ from scrapers.BaseScraper import BaseScraper
 
 
 class GazetaScraper(BaseScraper):
+    """
+    Актуальная версия парсера сайта gazeta.spb
+    """
 
     rubric_dictionary = {
         "город": "https://gazeta.spb.ru/category/",
@@ -298,7 +301,9 @@ class GazetaScraper(BaseScraper):
 class Scrapper:
     """
     Класс для автоматизированного сбора текстов новостных статей с сайта https://gazeta.spb.ru/
-    Парсер был актуализирован 15.07.2026.
+
+    *ВАЖНО* УСТАРЕВШИЙ КЛАСС!
+    Название актуального класса: GazetaScraper
     """
 
     def __init__(self, category: str):
@@ -338,6 +343,10 @@ class Scrapper:
 
         self.news_category = category
         self.category_url = mapping_dictionary.get(category)
+
+        print(
+            'ВНИМАНИЕ! Инициализирована устаревшая версия парсера!\nНазвание актуального класса парсера "GazetaScraper"!'
+        )
 
     # Parsing news body
 
