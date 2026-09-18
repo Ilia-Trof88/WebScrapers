@@ -1,5 +1,4 @@
 import requests
-from bs4 import BeautifulSoup
 
 from scrapers.BaseScraper import BaseScraper
 

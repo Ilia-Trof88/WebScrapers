@@ -1,26 +1,20 @@
-# Скрипт сбора новостей по всем тематикам используя класс парсера из scrapers.GazetaScaper
+# Работоспособность проверена 18.09.2026
+import pandas as pd
 
-# Работоспособность проверена 15.09.2026
+from scrapers.GazetaScraper import GazetaScraper
 
-from scrapers.GazetaScraper import Scrapper
+n_news = int(input("Введите количество новостей, которое необходимо собрать: "))
 
-n_news = int(input('Введите количество новостей, которое необходимо собрать: '))
+target_rubric = input("Введите рубрику, по которой хотите собрать новости: ")
 
-target_categories = [
-    'Наука',
-    'Спорт',
-    'Политика',
-    'Город',
-    'Происшествия',
-    'Ленобласть',
-    'Культура'
-]
+scraper = GazetaScraper(scraper_name="GazetaScraper", rubric_name=target_rubric)
 
-for category in target_categories:
+result = scraper.parse_rubric(target_news_num=n_news)
 
-    parser = Scrapper(category = category)
+df = pd.DataFrame(result)
 
-    result = parser.scrape_news(n_news = n_news,
-                                save_path = f"data/{category}.csv")
-    
-    print(f'Сбор новостей по тематике {category} окончен! Собрано новостей: {len(result)}')
+df.to_csv(f"data/gazeta_data/{target_rubric}.csv", index=False)
+
+print(
+    f"Цикл сбора новостей успешно сохранен, новости успешно сохранены в следующую директорию: data/gazeta_data/{target_rubric}.csv"
+)
