@@ -8,9 +8,32 @@ from scrapers.BaseScraper import BaseScraper
 
 class GazetaScraper(BaseScraper):
 
-    def __init__(self, scraper_name):
+    rubric_dictionary = {
+        "город": "https://gazeta.spb.ru/category/",
+        "происшествия": "https://gazeta.spb.ru/category/proisshestviya-20/",
+        "ленобласть": "https://gazeta.spb.ru/category/leningradskaya-oblast/",
+        "культура": "https://gazeta.spb.ru/category/kultura-40978/",
+        "спорт": "https://gazeta.spb.ru/category/sport-4/",
+        "политика": "https://gazeta.spb.ru/category/politika-6/",
+        "наука": "https://gazeta.spb.ru/category/nauka-10724-8287/"
+        }
+
+    def __init__(self,
+                 scraper_name: str,
+                 rubric_name: str):
         super().__init__(scraper_name)
 
+        supported_rubrics = ', '.join(list(self.rubric_dictionary.keys()))
+
+        if rubric_name.lower() not in self.rubric_dictionary:
+            raise ValueError(f'Введена недопустимая рубрика!\nПоддерживаемые рубрики: {supported_rubrics}')
+
+        self.rubric_name = rubric_name.lower()
+        self.initial_url = self.rubric_dictionary.get(self.rubric_name)
+
+        print(f'GazetaScraper по тематике {self.rubric_name} успешно инициализирован!')
+
+        
     def _get_bs_object(self,
                        target_url: str) -> BeautifulSoup | None:
         '''
@@ -23,18 +46,29 @@ class GazetaScraper(BaseScraper):
             BeautifulSoup | None: Объект BeautifulSoup | None при response_code != 200.
         '''
 
-        response = requests.get(url = target_url)
+        try:
 
-        if response.status_code != 200:
+            response = requests.get(url = target_url)
 
-            print('Произошла непредвиденная ошибка при отправка запроса!')
-            print(f'Status Code: {response.status_code}')
-            print(f'Текст ошибки: {response.text}')
-            return None
+            if response.status_code != 200:
 
-        bs_object = BeautifulSoup(response.text, 'html.parser')
+                print('Произошла непредвиденная ошибка при отправка запроса!')
+                print(f'Status Code: {response.status_code}')
+                print(f'Текст ошибки: {response.text}')
+                return None
 
-        return bs_object
+            bs_object = BeautifulSoup(response.text, 'html.parser')
+
+            return bs_object
+
+        except Exception as e:
+
+            print('Произошла ошибка при отправке запроса')
+            print(f'Текст ошибки: {e}')
+
+            empty_bs_object = BeautifulSoup() # Поиск по такому объекту вернет None, но не выдаст ошибку как в случае поиска по None
+
+            return empty_bs_object
 
     def _parse_headline(self,
                         news_url: str) -> str | None:
@@ -52,10 +86,9 @@ class GazetaScraper(BaseScraper):
 
         news_headline = bs_object.find('h1').text
 
-        if not news_headline:
-            return None
+        headline = None if news_headline is None else news_headline
 
-        return news_headline
+        return headline
 
     def _parse_news_body(self,
                          news_url: str) -> str | None:
@@ -72,23 +105,21 @@ class GazetaScraper(BaseScraper):
 
         bs_object = self._get_bs_object(target_url = news_url)
 
-        try:
+        content_div = bs_object.find('div', class_='td_block_wrap tdb_single_content tdi_73 td-pb-border-top td_block_template_1 td-post-content tagdiv-type')
 
-            content_div = bs_object.find('div', class_='td_block_wrap tdb_single_content tdi_73 td-pb-border-top td_block_template_1 td-post-content tagdiv-type')
+        body_pattern = re.compile(r"^h[1-6]$|^p$")
 
-            body_pattern = re.compile(r"^h[1-6]$|^p$")
+        matches = content_div.find_all(re.compile(body_pattern))
 
-            matches = content_div.find_all(re.compile(body_pattern))
+        if not matches:
+            return None
+
+        else:
 
             article_text = '\n\n'.join([x.get_text(strip = True) for x in matches])
 
             return article_text
 
-        except Exception as e:
-
-            print('Произошла непредвиденная ошибка при парсинге тела новости!')
-            print(f'Текст ошибки: {e}')
-            return None
 
     def _parse_date(self,
                     news_url: str) -> str | None:
@@ -106,20 +137,115 @@ class GazetaScraper(BaseScraper):
 
         date_class = bs_object.find('time', class_='entry-date updated td-module-date')
 
-        if not date_class:
-            return None
-
-        publish_date = date_class['datetime']
+        publish_date = None if date_class is None else date_class['datetime']
 
         return publish_date
 
+    def _parse_author(self,
+                      news_url: str) -> str:
+        '''
+        Метод для получения автора статьи
 
+        Args:
 
-    def _get_page_news(self):
-        return super()._get_page_news()
+        Returns:
 
-    def _parse_single_article(self):
-        return super()._parse_single_article()
+        '''
+
+        bs_object = self._get_bs_object(target_url = news_url)
+
+        author_block = bs_object.find('a', class_='tdb-author-name')
+
+        author = None if author_block is None else author_block.text.strip()
+
+        return author
+
+    def _parse_tags(self,
+                    news_url: str) -> str:
+        '''
+        Метод для получения тегов (в формате строки).
+
+        Args:
+
+        Returns:
+
+        '''
+
+        bs_object = self._get_bs_object(target_url = news_url)
+
+        tags_class = bs_object.find('ul', class_='tdb-tags')
+
+        tags = None if tags_class is None else ', '.join(tag.get_text(strip = True) for tag in tags_class.find_all('a'))
+
+        return tags
+
+    def _parse_single_article(self,
+                              news_url: str) -> dict:
+        '''
+        Метод для сбора всей информации по конкретной новости.
+
+        Args:
+            news_url (str): Ссылка на новостную статью
+        
+        Returns:
+            dict: Словарь со следующими ключами:
+            - headline:
+            - body:
+            - publishing_date:
+            - url:
+            - rubric_name: 
+        '''
+
+        news_dictionary = {
+            "headline": self._parse_headline(news_url = news_url),
+            "body": self._parse_news_body(news_url = news_url),
+            "tags": self._parse_tags(news_url = news_url),
+            "publishing_date": self._parse_date(news_url = news_url),
+            "url": news_url,
+            "rubric_name": self.rubric_name
+        }
+
+        return news_dictionary
+
+    def _get_page_news(self,
+                       target_url: str) -> list[str] | None:
+        '''
+        Метод получения всех URL-новостей на заданной странице.
+
+        Args:
+
+        Returns:
+
+        '''
+
+        bs_object = self._get_bs_object(target_url = target_url)
+
+        h3_tags = bs_object.select('h3.entry-title.td-module-title')
+
+        if h3_tags is None:
+            return None # На текущей странице не обнаружено новостей
+
+        hrefs = []
+
+        for h in h3_tags:
+
+            a = h.find("a")
+
+            if (a) and (a.get('href')):
+
+                hrefs.append(a['href'])
+
+        return hrefs
+
+    def _get_next_page_link(self,
+                            target_url: str) -> str:
+        '''
+        '''
+        pass
+
+    def parse_rubric(self):
+        pass
+
 
 
 class Scrapper:
