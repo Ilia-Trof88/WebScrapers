@@ -1,7 +1,125 @@
+import re
 import requests
 import pandas as pd
 
 from bs4 import BeautifulSoup
+
+from scrapers.BaseScraper import BaseScraper
+
+class GazetaScraper(BaseScraper):
+
+    def __init__(self, scraper_name):
+        super().__init__(scraper_name)
+
+    def _get_bs_object(self,
+                       target_url: str) -> BeautifulSoup | None:
+        '''
+        Метод для получения объекта BeautifulSoup.
+
+        Args:
+            target_url (str): URL-страницы, для которой необходимо получить объект BS.
+        
+        Returns:
+            BeautifulSoup | None: Объект BeautifulSoup | None при response_code != 200.
+        '''
+
+        response = requests.get(url = target_url)
+
+        if response.status_code != 200:
+
+            print('Произошла непредвиденная ошибка при отправка запроса!')
+            print(f'Status Code: {response.status_code}')
+            print(f'Текст ошибки: {response.text}')
+            return None
+
+        bs_object = BeautifulSoup(response.text, 'html.parser')
+
+        return bs_object
+
+    def _parse_headline(self,
+                        news_url: str) -> str | None:
+        '''
+        Метод для получения заголовка новостной статьи.
+
+        Args:
+            news_url (str): URL новостной статьи, из которой нужно извлечь заголовок
+        
+        Returns:
+            str | None: Новостной заголовок в формате str | None, если выделить не удалось.
+        '''
+
+        bs_object = self._get_bs_object(target_url = news_url)
+
+        news_headline = bs_object.find('h1').text
+
+        if not news_headline:
+            return None
+
+        return news_headline
+
+    def _parse_news_body(self,
+                         news_url: str) -> str | None:
+        '''
+        Метод для получения основного текста (тела) новостной статьи.
+
+        Args:
+            news_url (str): URL новостной статьи, с которой нужно собрать информацию.
+        
+        Returns:
+            str | None: Тело новостной статьи в формате str | None, если произошла ошибка при выполнении запроса
+
+        '''
+
+        bs_object = self._get_bs_object(target_url = news_url)
+
+        try:
+
+            content_div = bs_object.find('div', class_='td_block_wrap tdb_single_content tdi_73 td-pb-border-top td_block_template_1 td-post-content tagdiv-type')
+
+            body_pattern = re.compile(r"^h[1-6]$|^p$")
+
+            matches = content_div.find_all(re.compile(body_pattern))
+
+            article_text = '\n\n'.join([x.get_text(strip = True) for x in matches])
+
+            return article_text
+
+        except Exception as e:
+
+            print('Произошла непредвиденная ошибка при парсинге тела новости!')
+            print(f'Текст ошибки: {e}')
+            return None
+
+    def _parse_date(self,
+                    news_url: str) -> str | None:
+        '''
+        Метод для получения даты публикации новости в формате строки.
+
+        Args:
+            news_url (str): URL новостной статьи для сбора даты публикации.
+        
+        Returns:
+            str | None: Дата (datetime) публикации в формате строки | None если дату выделить не удалось.
+        '''
+
+        bs_object = self._get_bs_object(target_url = news_url)
+
+        date_class = bs_object.find('time', class_='entry-date updated td-module-date')
+
+        if not date_class:
+            return None
+
+        publish_date = date_class['datetime']
+
+        return publish_date
+
+
+
+    def _get_page_news(self):
+        return super()._get_page_news()
+
+    def _parse_single_article(self):
+        return super()._parse_single_article()
 
 
 class Scrapper:
